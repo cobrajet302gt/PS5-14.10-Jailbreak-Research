@@ -14,6 +14,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#4 — 14.10 lifecycle physics: V25/V26/V27 (table-static, reclaim-blind, producer-dead)**
 - **#5 — Weak-set table geometry: the 80-byte rule and the inversion recipe**
 - **#6 — Era laws: claim-time = walk-time, slot-map duality, witness-blindness**
+- **#7 — Font-load carrier producers: no FontFaceSet timer; per-face block timeout + witness-ordering discriminator**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

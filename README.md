@@ -4,6 +4,19 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 
 > **Disclaimer:** Authorized security research on personally owned hardware. For educational and research purposes only.
 
+## Research registry (updated 2026-11-01)
+
+**This repository is the canonical public record for this bench's findings.** Findings land here as numbered issues first, then engage on the community boards (ZigZagBoi1/PS5-14.10-Research, pastawithpesto/PS5-14.10-Jailbreak-Research, Kickazzman/ps5-1410-research) where they get stress-tested; anything that survives review links back to the issue number here. Issue contents are public-origin records: measurement laws with methodology, verdict labels with their kill criteria, and probe grammar that anyone can re-run.
+
+- **#1 — Measurement law index** (the canon list, each row citing its device record)
+- **#2 — V23: op-end-synchronous claim law (14.10)**
+- **#3 — V24: farm oracle constants (per-load re-pin law)**
+- **#4 — 14.10 lifecycle physics: V25/V26/V27 (table-static, reclaim-blind, producer-dead)**
+- **#5 — Weak-set table geometry: the 80-byte rule and the inversion recipe**
+- **#6 — Era laws: claim-time = walk-time, slot-map duality, witness-blindness**
+
+Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
+
 ## Target
 
 Validated on device (p163, V399, V520, V521).
@@ -13,7 +26,7 @@ Validated on device (p163, V399, V520, V521).
 | Platform | PlayStation 5 |
 | Firmware | 14.10 |
 | OS | Prospero (FreeBSD r230171) |
-| CPU | AMD Zen 2, 16KB pages |
+| CPU | AMD Zen 2, 4 KiB pages (amd64; the +0x4000 stride in leaked-pointer bands is allocator span granularity, not page size — see issue #6) |
 | Browser | Safari 17.0 / AppleWebKit 605.1.15 |
 | Source tree | **WebKit-1400** (primary), WebKit-1200 (secondary) |
 | JIT | Disabled (LLInt only) |

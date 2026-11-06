@@ -19,6 +19,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#9 — Stage-2 re-arm law: terminal-status faces never walk again (the pump() status gate) — what page shapes can re-arm a second reclaim; plus Zenbleed kernel-text scan row and the Spectre attribution law**
 - **#10 — Canvas m_stateStack crash oracle (V650 family): header-split law, attribution law, size-class admission, +0x70 confirmation rows**
 - **#11 — Sys 611/613/615 stats family: second-capture byte confirmation of the 13.60 decodes, and the 14.10 self channel 615 already writes (0xC42)**
+- **#12 — Dense-source \`map\` unfalsifiability law: OSR-exit hole/stale dichotomy structurally dead (deopt-continuation semantics), self-refuting-capture cross-arrest rule, sparse-source re-arm**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

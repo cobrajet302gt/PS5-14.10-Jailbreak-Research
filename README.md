@@ -16,6 +16,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#6 — Era laws: claim-time = walk-time, slot-map duality, witness-blindness**
 - **#7 — Font-load carrier producers: no FontFaceSet timer; per-face block timeout + witness-ordering discriminator**
 - **#8 — Sony port build-config laws (WK-1400 drop): IsoMalloc OFF, JIT/DFG/Wasm off by port config — the file that settles allocator and API-fingerprint claims**
+- **#9 — Stage-2 re-arm law: terminal-status faces never walk again (the pump() status gate) — what page shapes can re-arm a second reclaim; plus Zenbleed kernel-text scan row and the Spectre attribution law**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

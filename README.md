@@ -4,7 +4,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 
 > **Disclaimer:** Authorized security research on personally owned hardware. For educational and research purposes only.
 
-## Research registry (updated 2026-11-01)
+## Research registry (updated 2026-11-06)
 
 **This repository is the canonical public record for this bench's findings.** Findings land here as numbered issues first, then engage on the community boards (ZigZagBoi1/PS5-14.10-Research, pastawithpesto/PS5-14.10-Jailbreak-Research, Kickazzman/ps5-1410-research) where they get stress-tested; anything that survives review links back to the issue number here. Issue contents are public-origin records: measurement laws with methodology, verdict labels with their kill criteria, and probe grammar that anyone can re-run.
 
@@ -15,6 +15,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#5 — Weak-set table geometry: the 80-byte rule and the inversion recipe**
 - **#6 — Era laws: claim-time = walk-time, slot-map duality, witness-blindness**
 - **#7 — Font-load carrier producers: no FontFaceSet timer; per-face block timeout + witness-ordering discriminator**
+- **#8 — Sony port build-config laws (WK-1400 drop): IsoMalloc OFF, JIT/DFG/Wasm off by port config — the file that settles allocator and API-fingerprint claims**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

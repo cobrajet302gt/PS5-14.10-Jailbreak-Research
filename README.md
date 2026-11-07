@@ -4,7 +4,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 
 > **Disclaimer:** Authorized security research on personally owned hardware. For educational and research purposes only.
 
-## Research registry (updated 2026-11-06)
+## Research registry (updated 2026-11-07)
 
 **This repository is the canonical public record for this bench's findings.** Findings land here as numbered issues first, then engage on the community boards (ZigZagBoi1/PS5-14.10-Research, pastawithpesto/PS5-14.10-Jailbreak-Research, Kickazzman/ps5-1410-research) where they get stress-tested; anything that survives review links back to the issue number here. Issue contents are public-origin records: measurement laws with methodology, verdict labels with their kill criteria, and probe grammar that anyone can re-run.
 
@@ -21,6 +21,9 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#11 — Sys 611/613/615 stats family: second-capture byte confirmation of the 13.60 decodes, and the 14.10 self channel 615 already writes (0xC42)**
 - **#12 — Dense-source `map` unfalsifiability law: OSR-exit hole/stale dichotomy structurally dead (deopt-continuation semantics), self-refuting-capture cross-arrest rule, sparse-source re-arm**
 - **#13 — Fault-oracle #PF discriminator law: bit-0-present rule, full nibble taxonomy (SDM 6.13 bit-encode; RSVD is the only uninformative class), and the 1552/1552 fetch-path histogram of the published 1199 captures**
+- **#14 — RAB sort mid-sort-resize law (WK-1400 source): re-entry/bounds duality — comparator forces scratch-snapshot merge with live-bounded writeback; the [1,2,3,4]-at-[0..3] prefix is spec-mandated, neither OOB-read nor OOB-write**
+- **#15 — Sys 622 ret-0 rejection law: the status dword at buffer+0x00 decides dispatch — the pre-zeroed 55c sweep self-proves its own void**
+- **#16 — Beacon capture integrity: baseline browser_runner drops query payloads (verified at pinned source); era-grading the 266-file committed capture archive — capture-limited rows are not null results**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

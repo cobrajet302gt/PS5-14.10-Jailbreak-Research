@@ -24,7 +24,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#14 — RAB sort mid-sort-resize law (WK-1400 source): re-entry/bounds duality — comparator forces scratch-snapshot merge with live-bounded writeback; the [1,2,3,4]-at-[0..3] prefix is spec-mandated, neither OOB-read nor OOB-write**
 - **#15 — Sys 622 ret-0 rejection law: the status dword at buffer+0x00 decides dispatch — the pre-zeroed 55c sweep self-proves its own void**
 - **#16 — Beacon capture integrity: baseline browser_runner drops query payloads (verified at pinned source); era-grading the 266-file committed capture archive — capture-limited rows are not null results**
-- **17 — 13.60 names+thunks table splits the 14.10 ENOSYS stub list: 14 master-nosys, 4 silent stub bodies, 2 nosys wrappers, 7 genuine retirements; handler_rva values are 8-byte jmp thunks, not bodies; 622 recoverable at the size-gate reject shape**
+- **#17 — 13.60 names+thunks table splits the 14.10 ENOSYS stub list: 14 master-nosys, 4 silent stub bodies, 2 nosys wrappers, 7 genuine retirements; handler_rva values are 8-byte jmp thunks, not bodies; 622 recoverable at the size-gate reject shape**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

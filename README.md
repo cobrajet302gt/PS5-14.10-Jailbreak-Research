@@ -4,7 +4,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 
 > **Disclaimer:** Authorized security research on personally owned hardware. For educational and research purposes only.
 
-## Research registry (updated 2026-11-11)
+## Research registry (updated 2026-11-12)
 
 **This repository is the canonical public record for this bench's findings.** Findings land here as numbered issues first, then engage on the community boards (ZigZagBoi1/PS5-14.10-Research, pastawithpesto/PS5-14.10-Jailbreak-Research, Kickazzman/ps5-1410-research) where they get stress-tested; anything that survives review links back to the issue number here. Issue contents are public-origin records: measurement laws with methodology, verdict labels with their kill criteria, and probe grammar that anyone can re-run.
 
@@ -29,6 +29,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#19 — Cross-generation tier law + null-instrument bundle: Wasm-undefined corroborates config-mandated LLInt-only [S+M] (port file sets no independent WEBASSEMBLY line, so the converse direction corroborates); error-history null two generations deep (crash-as-instrument scoped to kernel-side holders, trap-shape ask closed negative); mutation-gate detector law (p695-C closes from committed source at 28 = 32 - 4); nine-branch presence audit; alias-header address arm pre-registered**
 - **#20 — p691 vtable leak adjudicated against the fork drop: 8/8 Client-vtable slot count predicted==observed [S+M, first device-grade slot-law confirmation]; six-row delta-table erratum recomputed from their committed log; vtable RVA is a link-time fact, not a source fact (605.1.15 = UA token, drop reports 616); IsoMalloc retraction double-grades #8 with a named pas-routing mechanism; re-mining honest zero, band-attribution + filter-clause amendments**
 - **#21 — Splice path-B consumer-invisibility law (WK-1400): handoff corruption mutates only in index space and nothing in this era caches hole POSITION — data-integrity class, memory-safety primitive excluded by construction; sentinel-discriminated stale-slot proof + T1-T3 pre-registered for the tail-loss batch**
+- **#22 — VP-anchor law: the p691/p804 leaked vtable is the FontFace wrapper's Client SECONDARY table (wrapper+0x20), not CSSFontFaceSet — s2=s4=s5 fold expected (inherited empty bodies + ICF, byte-identical across two public trees), fork-drift row retired; JS-ctor wrapper-as-client middle rung; committed p691 h3 triple re-mined as device witness for the pre-registered V1+v3 layout; VP−0x10 offset-to-top decider pre-registered (ZZ PR #275/#274 adjudicated)**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

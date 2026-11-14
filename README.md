@@ -4,7 +4,7 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 
 > **Disclaimer:** Authorized security research on personally owned hardware. For educational and research purposes only.
 
-## Research registry (updated 2026-11-12)
+## Research registry (updated 2026-11-14)
 
 **This repository is the canonical public record for this bench's findings.** Findings land here as numbered issues first, then engage on the community boards (ZigZagBoi1/PS5-14.10-Research, pastawithpesto/PS5-14.10-Jailbreak-Research, Kickazzman/ps5-1410-research) where they get stress-tested; anything that survives review links back to the issue number here. Issue contents are public-origin records: measurement laws with methodology, verdict labels with their kill criteria, and probe grammar that anyone can re-run.
 
@@ -31,6 +31,8 @@ WebKit memory safety research for PlayStation 5 firmware 14.10. All data comes f
 - **#21 — Splice path-B consumer-invisibility law (WK-1400): handoff corruption mutates only in index space and nothing in this era caches hole POSITION — data-integrity class, memory-safety primitive excluded by construction; sentinel-discriminated stale-slot proof + T1-T3 pre-registered for the tail-loss batch**
 - **#22 — VP-anchor law: the p691/p804 leaked vtable is the FontFace wrapper's Client SECONDARY table (wrapper+0x20), not CSSFontFaceSet — s2=s4=s5 fold expected (inherited empty bodies + ICF, byte-identical across two public trees), fork-drift row retired; JS-ctor wrapper-as-client middle rung; committed p691 h3 triple re-mined as device witness for the pre-registered V1+v3 layout; VP−0x10 offset-to-top decider pre-registered (ZZ PR #275/#274 adjudicated)**
 - **#23 — CSSFontFace stock-layout closure: Vector is 16 B in both pinned drops (device set/wrapper cells become stock-derivable); +0x82 status = fork-preserved pocket (stock status +0x94, 14.20-binary [rbx+0x82] anchor, fork tail 16-24 B); seed-pair discriminator pre-registered; setProperty 16-B write site + pool-singleton readback [S]**
+- **#24 — p691 WALK-ok ×7 on retail 14.10: end-to-end reproduction, the first forward-predictive L1 law (7/7), and the first addrof-probe negative**
+- **#25 — Heap-isolation blockers adjudicated: "IsoHeap active" retired (port-config law double-graded [S+M]; venue's own p636 verdict reads OFF; p658 capture never committed) — the live law is pas per-size directory routing (cross-size-class spray impossible; same-class cross-type reclaim proven: p599v4i AB backing at 192 B); Gigacage row splits observation [M] from mechanism [I] under the drop OS gate (bmalloc/Gigacage.h:43-47 — vanilla build = no cage) with a one-line runtime decider; JIT row converged, p636 carries a pending dated erratum; AB-only 768 B leg pre-registered (ZZ PR #280 adjudication)**
 
 Every claim in an issue carries its methodology and its public provenance (comment IDs on the community threads where the data was first reported). Negative results are kept with the same rigor as positives — several of the most load-bearing rows below are pre-labeled kills.
 

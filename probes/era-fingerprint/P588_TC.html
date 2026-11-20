@@ -1,0 +1,33 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>P588_TC</title></head><body>
+<script>
+// P588: Aleph-style tick-count cold/warm separation probe, PS5 14.10 WebKit.
+// Dependent Int32 pointer-chase over a fresh 16 KiB buffer; count hops inside
+// one 1 ms performance.now() edge. Arms interleaved c,w,c,w to cancel JIT ramp.
+// 4 rounds for stable JIT, report medians. Beacon: GET /beacon/P588-TC-...
+// plus console/DOM line so it works on any HTTPS server with no beacon log.
+function bc(t){try{var x=new XMLHttpRequest();x.open("GET","/beacon/"+encodeURIComponent(t),false);x.send();}catch(e){}}
+function out(t){document.body.appendChild(document.createTextNode(t+"\n"));bc(t);}
+setTimeout(function(){
+  var N=4096,st=new Int32Array(new ArrayBuffer(N*4));
+  for(var i=0;i<N;i++)st[i]=((i*2654435761)>>>0)%N;
+  var FILL=new Int32Array(new ArrayBuffer(2*1024*1024));
+  function chase(k){var v=0;for(var j=0;j<k;j++)v=st[v];return v;}
+  function edgeCount(){
+    var t0=performance.now(),k=0,v=0;
+    while(performance.now()-t0<1.05&&k<2000000){for(var j=0;j<64;j++)v=st[v];k+=64;}
+    return k+(v|0);
+  }
+  var cold=[],warm=[],t,q;
+  function evict(){var d=0;for(q=0;q<131072;q+=64)d+=FILL[q];return d;}
+  function med(a){a=a.slice().sort(function(x,y){return x-y;});return a[a.length>>1];}
+  for(var r=0;r<4;r++){
+    for(t=0;t<12;t++){
+      evict();chase(512);evict();cold.push(edgeCount());
+      chase(2048);warm.push(edgeCount());
+    }
+  }
+  var C=med(cold),W=med(warm);
+  out("P588-TC-c="+C+"-w="+W+"-r="+(W/C).toFixed(2));
+  if(!window.__P588DONE){window.__P588DONE=1;setTimeout(function(){location.reload();},4000);}
+},1500);
+</script></body></html>

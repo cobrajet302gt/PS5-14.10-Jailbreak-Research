@@ -1,0 +1,31 @@
+# CVE-2024-44308 fork-verification from public WebKit git (2026-11-21)
+
+## Fix commit (public): 82abacffb221fb67c7e144a88090fe7fc9208f3a (commits.webkit.org/288064@main, originally ded4d02c0a93)
+"Don't allocate DFG register after a slow path" — bug 283063, rdar://139747120
+@@ -3578,6 +3578,14 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(Node* node, TypedArrayType
+         }
+     }
+ 
++    GPRReg scratch2GPR = InvalidGPRReg;
++#if USE(JSVALUE64)
++    if (node->arrayMode().mayBeResizableOrGrowableSharedTypedArray()) {
++        scratch2.emplace(this);
++        scratch2GPR = scratch2->gpr();
++    }
++#endif
++
+     bool result = getIntTypedArrayStoreOperand(
+         value, propertyReg,
+ #if USE(JSVALUE32_64)
+@@ -3589,14 +3597,6 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(Node* node, TypedArrayType
+
+## Pre-fix (vulnerable) shape on OUR era branch safari-7616.1.20.10-branch (Safari 17.3-era, Feb 2024)
+File: Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp, function SpeculativeJIT::compilePutByValForIntTypedArray, relative line order:
+  L15:  std::optional<GPRTemporary> scratch2;
+  L28:  bool result = getIntTypedArrayStoreOperand(...)   <-- slow path region
+  L39-43: scratch2GPR set + scratch2.emplace(this) under
+          mayBeResizableOrGrowableSharedTypedArray()   <-- allocation AFTER slow path
+  L57:  jumpForTypedArrayOutOfBounds(..., scratch2GPR)
+
+=> vulnerable allocation ordering present in Feb-2024-era branch; guard condition = resizable/growable-shared typed arrays (our exact RAB trigger).
+=> Together with: behavioral 54/54 firing on retail 14.10 (evidence/p593-44308-20261121.txt) and fix-date Nov/Dec-2024 > fork-date, the bug is confirmed present by behavior AND source AND dating.

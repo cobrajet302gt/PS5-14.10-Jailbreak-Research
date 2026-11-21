@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>P590_ENCODER</title></head><body>
+<canvas id="cv" width="10" height="10"></canvas>
+<script>
+// P590: page-granular touch encoder for PS5 14.10 WebKit (pure JS, stock 1ms clock).
+// 64 x 16KiB candidate Int32 buffers; 16MiB evict sweep (past L3); per-slot
+// back-to-back double probe, ratio g=B/A. A slot that is already warm shows
+// g~1.0; cold slots jump g~1.4-1.6. Slot 3 is planted warm as positive control;
+// per-round canvas state-store writes (stale+live ctx) are an engine-side
+// write-traffic control. Self-calibrating: no cross-slot baseline needed.
+function bc(t){try{var x=new XMLHttpRequest();x.open("GET","/beacon/"+encodeURIComponent(t),false);x.send();}catch(e){}}
+function out(t){document.body.appendChild(document.createTextNode(t+"\n"));bc(t);}
+setTimeout(function(){
+  var cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+  var NC=64,cands=[],i,j,r;
+  for(i=0;i<NC;i++)cands.push(new Int32Array(new ArrayBuffer(16384)));
+  for(i=0;i<NC;i++){for(j=0;j<4095;j++)cands[i][j]=j+1;cands[i][4095]=0;}
+  var F2=new Int32Array(new ArrayBuffer(16*1024*1024));
+  function ev(){var d=0;for(j=0;j<4194304;j+=64)d+=F2[j];return d;}
+  function probe(arr){
+    var t0=performance.now(),k=0,v=0;
+    while(performance.now()-t0<1.05&&k<400000){v=arr[v];k+=4;}
+    return k+v;
+  }
+  var gg=[],lo=[];
+  for(i=0;i<NC;i++){
+    var pa=0,pb=0;
+    for(r=0;r<4;r++){
+      ev();
+      if(i===3){probe(cands[3]);probe(cands[3]);}
+      ctx.lineWidth=40+r;ctx.setLineDash([3+r,7]);
+      pa+=probe(cands[i]);pb+=probe(cands[i]);
+    }
+    var g=pb/(pa||1);gg.push(g);lo.push(g<1.10?i:-1);
+  }
+  var srt=gg.slice().sort(function(x,y){return x-y;});
+  var ms=gg.indexOf(Math.min.apply(null,gg));
+  out("P590-TRIG-g3="+gg[3].toFixed(3)+"-medg="+srt[NC>>2].toFixed(3)+"-minslot="+ms+"-near="+lo.filter(function(x){return x>=0&&x!==3;}).join(","));
+  if(!window.__P590DONE){window.__P590DONE=1;setTimeout(function(){location.reload();},4000);}
+},1200);
+</script></body></html>
